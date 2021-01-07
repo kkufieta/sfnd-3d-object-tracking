@@ -256,15 +256,17 @@ int main(int argc, const char *argv[]) {
       /* MATCH KEYPOINT DESCRIPTORS */
 
       vector<cv::DMatch> matches;
-      string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
-      string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
-      string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
+      string matcherType = "MAT_BF"; // MAT_BF, MAT_FLANN
+      string descriptorType_ = descriptorType.compare("SIFT") == 0
+                                   ? "DES_HOG"
+                                   : "DES_BINARY"; // DES_BINARY, DES_HOG
+      string selectorType = "SEL_NN";              // SEL_NN, SEL_KNN
 
       matchDescriptors((dataBuffer.end() - 2)->keypoints,
                        (dataBuffer.end() - 1)->keypoints,
                        (dataBuffer.end() - 2)->descriptors,
                        (dataBuffer.end() - 1)->descriptors, matches,
-                       descriptorType, matcherType, selectorType);
+                       descriptorType_, matcherType, selectorType);
 
       // store matches in current data frame
       (dataBuffer.end() - 1)->kptMatches = matches;
