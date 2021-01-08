@@ -161,7 +161,19 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev,
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate,
                      double &TTC) {
-  // ...
+  double dT = 60 / frameRate;
+  double closestXPrev = lidarPointsPrev[0].x;
+  double closestXCurr = lidarPointsCurr[0].x;
+  for (auto it = lidarPointsPrev.begin(); it != lidarPointsPrev.end(); it++) {
+    closestXPrev = it->x < closestXPrev ? it->x : closestXPrev;
+  }
+  for (auto it = lidarPointsCurr.begin(); it != lidarPointsCurr.end(); it++) {
+    closestXCurr = it->x < closestXCurr ? it->x : closestXCurr;
+  }
+  TTC = closestXCurr * dT / (closestXPrev - closestXCurr);
+  cout << "closestXCurr, closestXPrev: " << closestXCurr << ", " << closestXPrev
+       << endl;
+  cout << "diff: " << closestXPrev - closestXCurr << endl;
 }
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches,

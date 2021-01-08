@@ -312,15 +312,12 @@ int main(int argc, const char *argv[]) {
 
       cout << "#8 : TRACK 3D OBJECT BOUNDING BOXES done" << endl;
 
-      // REMOVE THIS LINE BEFORE PROCEEDING WITH THE FINAL PROJECT
-      continue; // skips directly to the next image without processing what
-                // comes beneath
-
       /* COMPUTE TTC ON OBJECT IN FRONT */
 
       // loop over all BB match pairs
       for (auto it1 = (dataBuffer.end() - 1)->bbMatches.begin();
            it1 != (dataBuffer.end() - 1)->bbMatches.end(); ++it1) {
+        cout << "BB Match: " << it1->first << ", " << it1->second << endl;
         // find bounding boxes associates with current match
         BoundingBox *prevBB, *currBB;
         for (auto it2 = (dataBuffer.end() - 1)->boundingBoxes.begin();
@@ -346,17 +343,16 @@ int main(int argc, const char *argv[]) {
             prevBB->lidarPoints.size() >
                 0) // only compute TTC if we have Lidar points
         {
-          //// STUDENT ASSIGNMENT
-          //// TASK FP.2 -> compute time-to-collision based on Lidar data
-          ///(implement -> computeTTCLidar)
+          // compute time-to-collision based on Lidar data
           double ttcLidar;
           computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints,
                           sensorFrameRate, ttcLidar);
-          //// EOF STUDENT ASSIGNMENT
 
           //// STUDENT ASSIGNMENT
           //// TASK FP.3 -> assign enclosed keypoint matches to bounding box
-          ///(implement -> clusterKptMatchesWithROI) / TASK FP.4 -> compute
+          ///(implement -> clusterKptMatchesWithROI)
+
+          /// TASK FP.4 -> compute
           /// time-to-collision based on camera (implement -> computeTTCCamera)
           double ttcCamera;
           clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints,
