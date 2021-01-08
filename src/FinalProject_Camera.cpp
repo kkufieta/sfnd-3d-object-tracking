@@ -216,6 +216,30 @@ int main(int argc, const char *argv[]) {
     }
     detectTimes.push_back(detectTime);
 
+    cout << "Number total keypoints: " << keypoints.size() << endl;
+    vector<cv::KeyPoint> reducedKeypoints;
+    for (cv::KeyPoint kp : keypoints) {
+      for (BoundingBox bb : (dataBuffer.end() - 1)->boundingBoxes) {
+        if (bb.roi.contains(kp.pt)) {
+          bb.keypoints.push_back(kp);
+          reducedKeypoints.push_back(kp);
+          break;
+        }
+      }
+    }
+    keypoints = reducedKeypoints;
+    cout << "Number reduced keypoints: " << keypoints.size() << endl;
+
+    if (bVis) {
+      // visualize results
+      cv::Mat vis_image = img.clone();
+      cv::drawKeypoints(img, keypoints, vis_image);
+      string windowName = "Keypoints cropped to bounding boxes";
+      cv::namedWindow(windowName, 6);
+      cv::imshow(windowName, vis_image);
+      cv::waitKey(0);
+    }
+
     // optional : limit number of keypoints (helpful for debugging and learning)
     bool bLimitKpts = false;
     if (bLimitKpts) {
@@ -273,26 +297,24 @@ int main(int argc, const char *argv[]) {
 
       cout << "#7 : MATCH KEYPOINT DESCRIPTORS done" << endl;
 
-      // REMOVE THIS LINE BEFORE PROCEEDING WITH THE FINAL PROJECT
-      continue; // skips directly to the next image without processing what
-                // comes beneath
-
       /* TRACK 3D OBJECT BOUNDING BOXES */
 
-      //// STUDENT ASSIGNMENT
-      //// TASK FP.1 -> match list of 3D objects (vector<BoundingBox>) between
-      /// current and previous frame (implement ->matchBoundingBoxes)
+      // match list of 3D objects (vector<BoundingBox>) between
+      // current and previous frame
       map<int, int> bbBestMatches;
       matchBoundingBoxes(
           matches, bbBestMatches, *(dataBuffer.end() - 2),
           *(dataBuffer.end() - 1)); // associate bounding boxes between current
                                     // and previous frame using keypoint matches
-      //// EOF STUDENT ASSIGNMENT
 
       // store matches in current data frame
       (dataBuffer.end() - 1)->bbMatches = bbBestMatches;
 
       cout << "#8 : TRACK 3D OBJECT BOUNDING BOXES done" << endl;
+
+      // REMOVE THIS LINE BEFORE PROCEEDING WITH THE FINAL PROJECT
+      continue; // skips directly to the next image without processing what
+                // comes beneath
 
       /* COMPUTE TTC ON OBJECT IN FRONT */
 

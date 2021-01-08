@@ -167,5 +167,43 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches,
                         std::map<int, int> &bbBestMatches, DataFrame &prevFrame,
                         DataFrame &currFrame) {
-  // ...
+  // match list of 3D objects (vector<BoundingBox>) between
+  // current and previous frame
+  // Loop through all matches and check in which box the respective keypoints
+  // lie in. Save those bounding box id matches to bbMatches.
+  std::multimap<int, int> bbMatches;
+  for (cv::DMatch match : matches) {
+    int prevBoxID, currBoxID;
+    for (BoundingBox bbox : prevFrame.boundingBoxes) {
+      if (bbox.roi.contains(prevFrame.keypoints[match.queryIdx].pt)) {
+        prevBoxID = bbox.boxID;
+        bbox.kptMatches.push_back(match);
+      }
+    }
+    for (BoundingBox bbox : currFrame.boundingBoxes) {
+      if (bbox.roi.contains(currFrame.keypoints[match.trainIdx].pt)) {
+        currBoxID = bbox.boxID;
+      }
+    }
+    bbMatches.insert(std::pair<int, int>(prevBoxID, currBoxID));
+  }
+
+  // Loop through bbMatches and save the frequency for the matched boxes.
+  // Get the box in the current frame that has been matched the most to the
+  // box in the previous frame.
+  for (int i = 0; i < prevFrame.boundingBoxes.size(); i++) {
+    vector<int> countMatches(currFrame.boundingBoxes.size(), 0);
+    std::pair<std::multimap<int, int>::iterator,
+              std::multimap<int, int>::iterator>
+        ret = bbMatches.equal_range(i);
+    cout << i << " => ";
+    for (auto it = ret.first; it != ret.second; it++) {
+      countMatches[it->second] += 1;
+    }
+    int matchedBoxId =
+        std::max_element(countMatches.begin(), countMatches.end()) -
+        countMatches.begin();
+    cout << matchedBoxId << endl;
+    bbBestMatches[i] = matchedBoxId;
+  }
 }
