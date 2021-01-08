@@ -161,7 +161,9 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev,
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate,
                      double &TTC) {
-  double dT = 60 / frameRate;
+  double dT = 1 / frameRate;
+  cout << "Length of lidarPointsPrev and lidarPointsCurr: "
+       << lidarPointsPrev.size() << ", " << lidarPointsCurr.size() << "\n";
   double closestXPrev = lidarPointsPrev[0].x;
   double closestXCurr = lidarPointsCurr[0].x;
   for (auto it = lidarPointsPrev.begin(); it != lidarPointsPrev.end(); it++) {
@@ -174,6 +176,27 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
   cout << "closestXCurr, closestXPrev: " << closestXCurr << ", " << closestXPrev
        << endl;
   cout << "diff: " << closestXPrev - closestXCurr << endl;
+
+  // In order to filter out outliers, choose the median of the smallest 20 x
+  // values
+  auto compareX = [](LidarPoint lp1, LidarPoint lp2) {
+    return (lp1.x < lp2.x);
+  };
+  std::sort(lidarPointsPrev.begin(), lidarPointsPrev.end(), compareX);
+  std::sort(lidarPointsCurr.begin(), lidarPointsCurr.end(), compareX);
+  int nPrev = lidarPointsPrev.size() < 20 ? lidarPointsPrev.size() : 20;
+  int nCurr = lidarPointsCurr.size() < 20 ? lidarPointsCurr.size() : 20;
+  double medianSmallestXPrev = (lidarPointsPrev[std::ceil(nPrev / 2. - 1)].x +
+                                lidarPointsPrev[std::floor(nPrev / 2.)].x) /
+                               2.0;
+  double medianSmallestXCurr = (lidarPointsCurr[std::ceil(nCurr / 2. - 1)].x +
+                                lidarPointsCurr[std::floor(nCurr / 2.)].x) /
+                               2.0;
+  // TTC = medianSmallestXCurr * dT / (medianSmallestXPrev -
+  // medianSmallestXCurr);
+  cout << "medianSmallestXCurr, medianSmallestXPrev: " << medianSmallestXCurr
+       << ", " << medianSmallestXPrev << endl;
+  cout << "diff: " << medianSmallestXPrev - medianSmallestXCurr << endl;
 }
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches,
