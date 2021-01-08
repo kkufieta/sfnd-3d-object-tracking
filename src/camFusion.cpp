@@ -146,7 +146,46 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox,
                               std::vector<cv::KeyPoint> &kptsPrev,
                               std::vector<cv::KeyPoint> &kptsCurr,
                               std::vector<cv::DMatch> &kptMatches) {
-  // ...
+  for (cv::DMatch match : kptMatches) {
+    if (boundingBox.roi.contains(kptsCurr[match.trainIdx].pt)) {
+      boundingBox.keypoints.push_back(kptsCurr[match.trainIdx]);
+      boundingBox.kptMatches.push_back(match);
+    }
+  }
+  vector<double> euclideanDistances;
+  double minDistance = 1e8;
+  double maxDistance = -1e8;
+  for (cv::DMatch match : boundingBox.kptMatches) {
+    double euclDist =
+        cv::norm(kptsPrev[match.queryIdx].pt - kptsCurr[match.trainIdx].pt);
+    minDistance = euclDist < minDistance ? euclDist : minDistance;
+    maxDistance = euclDist > maxDistance ? euclDist : maxDistance;
+    euclideanDistances.push_back(euclDist);
+  }
+  int n = euclideanDistances.size();
+  std::sort(euclideanDistances.begin(), euclideanDistances.end());
+  double medianEuclideanDistance = (euclideanDistances[std::ceil(n / 2. - 1)] +
+                                    euclideanDistances[std::floor(n / 2.)]) /
+                                   2.0;
+  // cout << "MEDIAN EUCLIDEAN DISTANCE: " << medianEuclideanDistance << endl;
+  // cout << "Number matches before filtering: " <<
+  // boundingBox.kptMatches.size()
+  //      << ", " << boundingBox.keypoints.size() << endl;
+  vector<cv::KeyPoint> kpts;
+  vector<cv::DMatch> matches;
+  for (cv::DMatch match : boundingBox.kptMatches) {
+    double euclDist =
+        cv::norm(kptsPrev[match.queryIdx].pt - kptsCurr[match.trainIdx].pt);
+    if (abs(euclDist - medianEuclideanDistance) <= 25) {
+      matches.push_back(match);
+      kpts.push_back(kptsCurr[match.trainIdx]);
+    }
+  }
+  boundingBox.keypoints = kpts;
+  boundingBox.kptMatches = matches;
+  // cout << "Number matches after filtering: " << boundingBox.kptMatches.size()
+  //      << ", " << boundingBox.keypoints.size() << endl;
+  // cout << endl;
 }
 
 // Compute time-to-collision (TTC) based on keypoint correspondences in
@@ -155,15 +194,66 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev,
                       std::vector<cv::KeyPoint> &kptsCurr,
                       std::vector<cv::DMatch> kptMatches, double frameRate,
                       double &TTC, cv::Mat *visImg) {
-  // ...
+  // compute distance ratios between all matched keypoints
+  vector<double> distRatios; // stores the distance ratios for all keypoints
+                             // between curr. and prev. frame
+  for (auto it1 = kptMatches.begin(); it1 != kptMatches.end() - 1;
+       ++it1) { // outer keypoint loop
+
+    // get current keypoint and its matched partner in the prev. frame
+    cv::KeyPoint kpOuterCurr = kptsCurr.at(it1->trainIdx);
+    cv::KeyPoint kpOuterPrev = kptsPrev.at(it1->queryIdx);
+
+    for (auto it2 = kptMatches.begin() + 1; it2 != kptMatches.end();
+         ++it2) { // inner keypoint loop
+
+      double minDist = 100.0; // min. required distance
+
+      // get next keypoint and its matched partner in the prev. frame
+      cv::KeyPoint kpInnerCurr = kptsCurr.at(it2->trainIdx);
+      cv::KeyPoint kpInnerPrev = kptsPrev.at(it2->queryIdx);
+
+      // compute distances and distance ratios
+      double distCurr = cv::norm(kpOuterCurr.pt - kpInnerCurr.pt);
+      double distPrev = cv::norm(kpOuterPrev.pt - kpInnerPrev.pt);
+
+      if (distPrev > std::numeric_limits<double>::epsilon() &&
+          distCurr >= minDist) { // avoid division by zero
+
+        double distRatio = distCurr / distPrev;
+        distRatios.push_back(distRatio);
+      }
+    } // eof inner loop over all matched kpts
+  }   // eof outer loop over all matched kpts
+
+  // only continue if list of distance ratios is not empty
+  if (distRatios.size() == 0) {
+    TTC = NAN;
+    return;
+  }
+
+  // compute camera-based TTC from distance ratios
+  double dT = 1 / frameRate;
+  std::sort(distRatios.begin(), distRatios.end());
+  int n = distRatios.size();
+  double medianDistRatio =
+      (distRatios[std::ceil(n / 2. - 1)] + distRatios[std::floor(n / 2.)]) /
+      2.0;
+  TTC = -dT / (1 - medianDistRatio);
+  // cout << "Median dist ratio TTC: " << TTC << ", ";
+  // double meanDistRatio =
+  //     std::accumulate(distRatios.begin(), distRatios.end(), 0.0) /
+  //     distRatios.size();
+  // TTC = -dT / (1 - meanDistRatio);
+  // cout << "Mean dist ratio TTC: " << TTC << endl;
 }
 
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate,
                      double &TTC) {
   double dT = 1 / frameRate;
-  cout << "Length of lidarPointsPrev and lidarPointsCurr: "
-       << lidarPointsPrev.size() << ", " << lidarPointsCurr.size() << "\n";
+  // cout << "Length of lidarPointsPrev and lidarPointsCurr: "
+  //      << lidarPointsPrev.size() << ", " << lidarPointsCurr.size() << "\n";
   double closestXPrev = lidarPointsPrev[0].x;
   double closestXCurr = lidarPointsCurr[0].x;
   for (auto it = lidarPointsPrev.begin(); it != lidarPointsPrev.end(); it++) {
@@ -173,9 +263,10 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
     closestXCurr = it->x < closestXCurr ? it->x : closestXCurr;
   }
   TTC = closestXCurr * dT / (closestXPrev - closestXCurr);
-  cout << "closestXCurr, closestXPrev: " << closestXCurr << ", " << closestXPrev
-       << endl;
-  cout << "diff: " << closestXPrev - closestXCurr << endl;
+  // cout << "closestXCurr, closestXPrev: " << closestXCurr << ", " <<
+  // closestXPrev
+  //      << endl;
+  // cout << "diff: " << closestXPrev - closestXCurr << endl;
 
   // In order to filter out outliers, choose the median of the smallest 20 x
   // values
@@ -192,11 +283,10 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
   double medianSmallestXCurr = (lidarPointsCurr[std::ceil(nCurr / 2. - 1)].x +
                                 lidarPointsCurr[std::floor(nCurr / 2.)].x) /
                                2.0;
-  // TTC = medianSmallestXCurr * dT / (medianSmallestXPrev -
-  // medianSmallestXCurr);
-  cout << "medianSmallestXCurr, medianSmallestXPrev: " << medianSmallestXCurr
-       << ", " << medianSmallestXPrev << endl;
-  cout << "diff: " << medianSmallestXPrev - medianSmallestXCurr << endl;
+  TTC = medianSmallestXCurr * dT / (medianSmallestXPrev - medianSmallestXCurr);
+  // cout << "medianSmallestXCurr, medianSmallestXPrev: " << medianSmallestXCurr
+  //      << ", " << medianSmallestXPrev << endl;
+  // cout << "diff: " << medianSmallestXPrev - medianSmallestXCurr << endl;
 }
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches,
@@ -212,7 +302,7 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches,
     for (BoundingBox bbox : prevFrame.boundingBoxes) {
       if (bbox.roi.contains(prevFrame.keypoints[match.queryIdx].pt)) {
         prevBoxID = bbox.boxID;
-        bbox.kptMatches.push_back(match);
+        // bbox.kptMatches.push_back(match); Done in clusterKptMatchesWithROI
       }
     }
     for (BoundingBox bbox : currFrame.boundingBoxes) {
@@ -231,14 +321,14 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches,
     std::pair<std::multimap<int, int>::iterator,
               std::multimap<int, int>::iterator>
         ret = bbMatches.equal_range(i);
-    cout << i << " => ";
+    // cout << i << " => ";
     for (auto it = ret.first; it != ret.second; it++) {
       countMatches[it->second] += 1;
     }
     int matchedBoxId =
         std::max_element(countMatches.begin(), countMatches.end()) -
         countMatches.begin();
-    cout << matchedBoxId << endl;
+    // cout << matchedBoxId << endl;
     bbBestMatches[i] = matchedBoxId;
   }
 }

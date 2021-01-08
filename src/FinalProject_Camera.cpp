@@ -24,6 +24,12 @@ using namespace std;
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[]) {
   /* INIT VARIABLES AND DATA STRUCTURES */
+  // Detector and descriptor types
+  // Detector types:
+  // -> Gradient Based: HARRIS, SHITOMASI, SIFT
+  // -> Binary: BRISK, ORB, AKAZE, FAST
+  string detectorType = "ORB";
+  string descriptorType = "BRISK"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
 
   // data location
   string dataPath = "../";
@@ -118,6 +124,8 @@ int main(int argc, const char *argv[]) {
 
   vector<float> detectTimes;
   vector<float> describeTimes;
+  vector<double> TTCsCamera;
+  vector<double> TTCsLidar;
   for (size_t imgIndex = 0; imgIndex <= imgEndIndex - imgStartIndex;
        imgIndex += imgStepWidth) {
     /* LOAD IMAGE INTO BUFFER */
@@ -182,12 +190,10 @@ int main(int argc, const char *argv[]) {
                         P_rect_00, R_rect_00, RT);
 
     // Visualize 3D objects
-    bVis = true;
     if (bVis) {
       show3DObjects((dataBuffer.end() - 1)->boundingBoxes, cv::Size(4.0, 20.0),
                     cv::Size(2000, 2000), true);
     }
-    bVis = true;
 
     cout << "#4 : CLUSTER LIDAR POINT CLOUD done" << endl;
 
@@ -201,7 +207,6 @@ int main(int argc, const char *argv[]) {
     // extract 2D keypoints from current image
     // create empty feature list for current image
     vector<cv::KeyPoint> keypoints;
-    string detectorType = "SHITOMASI";
 
     // Detector types:
     // -> Gradient Based: HARRIS, SHITOMASI, SIFT
@@ -216,19 +221,20 @@ int main(int argc, const char *argv[]) {
     }
     detectTimes.push_back(detectTime);
 
-    cout << "Number total keypoints: " << keypoints.size() << endl;
+    // cout << "Number total keypoints: " << keypoints.size() << endl;
     vector<cv::KeyPoint> reducedKeypoints;
     for (cv::KeyPoint kp : keypoints) {
       for (BoundingBox bb : (dataBuffer.end() - 1)->boundingBoxes) {
         if (bb.roi.contains(kp.pt)) {
-          bb.keypoints.push_back(kp);
+          // bb.keypoints.push_back(kp); Done in clusterKptMatchesWithROI in
+          // camFusion.cpp
           reducedKeypoints.push_back(kp);
           break;
         }
       }
     }
     keypoints = reducedKeypoints;
-    cout << "Number reduced keypoints: " << keypoints.size() << endl;
+    // cout << "Number reduced keypoints: " << keypoints.size() << endl;
 
     if (bVis) {
       // visualize results
@@ -245,7 +251,7 @@ int main(int argc, const char *argv[]) {
     if (bLimitKpts) {
       int maxKeypoints = 50;
 
-      if (detectorType.compare("SHITOMASI") ==
+      if (detectorType.compare("ORB") ==
           0) { // there is no response info, so keep the first 50 as they are
                // sorted in descending quality order
         keypoints.erase(keypoints.begin() + maxKeypoints, keypoints.end());
@@ -262,7 +268,6 @@ int main(int argc, const char *argv[]) {
     /* EXTRACT KEYPOINT DESCRIPTORS */
 
     cv::Mat descriptors;
-    string descriptorType = "BRISK"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
     float describeTime = descKeypoints((dataBuffer.end() - 1)->keypoints,
                                        (dataBuffer.end() - 1)->cameraImg,
                                        descriptors, descriptorType);
@@ -317,7 +322,7 @@ int main(int argc, const char *argv[]) {
       // loop over all BB match pairs
       for (auto it1 = (dataBuffer.end() - 1)->bbMatches.begin();
            it1 != (dataBuffer.end() - 1)->bbMatches.end(); ++it1) {
-        cout << "BB Match: " << it1->first << ", " << it1->second << endl;
+        // cout << "BB Match: " << it1->first << ", " << it1->second << endl;
         // find bounding boxes associates with current match
         BoundingBox *prevBB, *currBB;
         for (auto it2 = (dataBuffer.end() - 1)->boundingBoxes.begin();
@@ -347,23 +352,19 @@ int main(int argc, const char *argv[]) {
           double ttcLidar;
           computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints,
                           sensorFrameRate, ttcLidar);
+          TTCsLidar.push_back(ttcLidar);
 
-          //// STUDENT ASSIGNMENT
-          //// TASK FP.3 -> assign enclosed keypoint matches to bounding box
-          ///(implement -> clusterKptMatchesWithROI)
-
-          /// TASK FP.4 -> compute
-          /// time-to-collision based on camera (implement -> computeTTCCamera)
+          // compute time-to-collision based on camera
           double ttcCamera;
+          // assign enclosed keypoint matches to bounding box
           clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints,
                                    (dataBuffer.end() - 1)->keypoints,
                                    (dataBuffer.end() - 1)->kptMatches);
           computeTTCCamera((dataBuffer.end() - 2)->keypoints,
                            (dataBuffer.end() - 1)->keypoints,
                            currBB->kptMatches, sensorFrameRate, ttcCamera);
-          //// EOF STUDENT ASSIGNMENT
+          TTCsCamera.push_back(ttcCamera);
 
-          bVis = true;
           if (bVis) {
             cv::Mat visImg = (dataBuffer.end() - 1)->cameraImg.clone();
             showLidarImgOverlay(visImg, currBB->lidarPoints, P_rect_00,
@@ -385,13 +386,23 @@ int main(int argc, const char *argv[]) {
             cout << "Press key to continue to next frame" << endl;
             cv::waitKey(0);
           }
-          bVis = true;
 
         } // eof TTC computation
       }   // eof loop over all BB matches
     }
 
   } // eof loop over all images
+
+  cout << "TTC Lidar: ";
+  for (auto ttc : TTCsLidar) {
+    cout << ttc << ", ";
+  }
+  cout << endl;
+  cout << "TTC Camera: ";
+  for (auto ttc : TTCsCamera) {
+    cout << ttc << ", ";
+  }
+  cout << endl;
 
   return 0;
 }
