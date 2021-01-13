@@ -252,24 +252,21 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate,
                      double &TTC) {
   double dT = 1 / frameRate;
-  // cout << "Length of lidarPointsPrev and lidarPointsCurr: "
-  //      << lidarPointsPrev.size() << ", " << lidarPointsCurr.size() << "\n";
-  double closestXPrev = lidarPointsPrev[0].x;
-  double closestXCurr = lidarPointsCurr[0].x;
-  for (auto it = lidarPointsPrev.begin(); it != lidarPointsPrev.end(); it++) {
-    closestXPrev = it->x < closestXPrev ? it->x : closestXPrev;
-  }
-  for (auto it = lidarPointsCurr.begin(); it != lidarPointsCurr.end(); it++) {
-    closestXCurr = it->x < closestXCurr ? it->x : closestXCurr;
-  }
-  TTC = closestXCurr * dT / (closestXPrev - closestXCurr);
-  // cout << "closestXCurr, closestXPrev: " << closestXCurr << ", " <<
-  // closestXPrev
-  //      << endl;
-  // cout << "diff: " << closestXPrev - closestXCurr << endl;
+  // NAIVE IMPLEMENTATION: Pick the points with the smallest x-value:
+  // double closestXPrev = lidarPointsPrev[0].x;
+  // double closestXCurr = lidarPointsCurr[0].x;
+  // for (auto it = lidarPointsPrev.begin(); it != lidarPointsPrev.end(); it++)
+  // {
+  //   closestXPrev = it->x < closestXPrev ? it->x : closestXPrev;
+  // }
+  // for (auto it = lidarPointsCurr.begin(); it != lidarPointsCurr.end(); it++)
+  // {
+  //   closestXCurr = it->x < closestXCurr ? it->x : closestXCurr;
+  // }
+  // TTC = closestXCurr * dT / (closestXPrev - closestXCurr);
 
-  // In order to filter out outliers, choose the median of the smallest 20 x
-  // values
+  // MORE ROBUST IMPLEMENTATION: In order to filter out outliers, choose the
+  // median of the smallest 20 x values
   auto compareX = [](LidarPoint lp1, LidarPoint lp2) {
     return (lp1.x < lp2.x);
   };
@@ -284,9 +281,6 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                                 lidarPointsCurr[std::floor(nCurr / 2.)].x) /
                                2.0;
   TTC = medianSmallestXCurr * dT / (medianSmallestXPrev - medianSmallestXCurr);
-  // cout << "medianSmallestXCurr, medianSmallestXPrev: " << medianSmallestXCurr
-  //      << ", " << medianSmallestXPrev << endl;
-  // cout << "diff: " << medianSmallestXPrev - medianSmallestXCurr << endl;
 }
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches,
@@ -297,8 +291,11 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches,
   // Loop through all matches and check in which box the respective keypoints
   // lie in. Save those bounding box id matches to bbMatches.
   std::multimap<int, int> bbMatches;
+  int prevBoxID = -1;
+  int currBoxID = -1;
   for (cv::DMatch match : matches) {
-    int prevBoxID, currBoxID;
+    prevBoxID = -1;
+    currBoxID = -1;
     for (BoundingBox bbox : prevFrame.boundingBoxes) {
       if (bbox.roi.contains(prevFrame.keypoints[match.queryIdx].pt)) {
         prevBoxID = bbox.boxID;
@@ -310,17 +307,21 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches,
         currBoxID = bbox.boxID;
       }
     }
-    bbMatches.insert(std::pair<int, int>(prevBoxID, currBoxID));
+    if (prevBoxID >= 0 && currBoxID >= 0) {
+      bbMatches.insert(std::pair<int, int>(prevBoxID, currBoxID));
+    }
   }
 
-  // Loop through bbMatches and save the frequency for the matched boxes.
+  // Loop through bbMatches for every bounding box in the previous frame.
+  // Save the frequency for the matched boxes.
   // Get the box in the current frame that has been matched the most to the
   // box in the previous frame.
-  for (int i = 0; i < prevFrame.boundingBoxes.size(); i++) {
+  for (int prevBoxID = 0; prevBoxID < prevFrame.boundingBoxes.size();
+       prevBoxID++) {
     vector<int> countMatches(currFrame.boundingBoxes.size(), 0);
     std::pair<std::multimap<int, int>::iterator,
               std::multimap<int, int>::iterator>
-        ret = bbMatches.equal_range(i);
+        ret = bbMatches.equal_range(prevBoxID);
     // cout << i << " => ";
     for (auto it = ret.first; it != ret.second; it++) {
       countMatches[it->second] += 1;
@@ -329,6 +330,6 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches,
         std::max_element(countMatches.begin(), countMatches.end()) -
         countMatches.begin();
     // cout << matchedBoxId << endl;
-    bbBestMatches[i] = matchedBoxId;
+    bbBestMatches[prevBoxID] = matchedBoxId;
   }
 }

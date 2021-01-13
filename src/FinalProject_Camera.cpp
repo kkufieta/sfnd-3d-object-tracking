@@ -118,7 +118,7 @@ int main(int argc, const char *argv[]) {
                                 // buffer) at the same time
   vector<DataFrame> dataBuffer; // list of data frames which are held in memory
                                 // at the same time
-  bool bVis = true;             // visualize results
+  bool bVis = false;            // visualize results
 
   /* MAIN LOOP OVER ALL IMAGES */
 
@@ -183,7 +183,7 @@ int main(int argc, const char *argv[]) {
 
     // associate Lidar points with camera-based ROI
     float shrinkFactor =
-        0.10; // shrinks each bounding box by the given percentage to avoid 3D
+        0.15; // shrinks each bounding box by the given percentage to avoid 3D
               // object merging at the edges of an ROI
     clusterLidarWithROI((dataBuffer.end() - 1)->boundingBoxes,
                         (dataBuffer.end() - 1)->lidarPoints, shrinkFactor,
