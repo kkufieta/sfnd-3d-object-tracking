@@ -21,16 +21,65 @@
 
 using namespace std;
 
-/* MAIN PROGRAM */
-int main(int argc, const char *argv[]) {
-  /* INIT VARIABLES AND DATA STRUCTURES */
-  // Detector and descriptor types
-  // Detector types:
-  // -> Gradient Based: HARRIS, SHITOMASI, SIFT
-  // -> Binary: BRISK, ORB, AKAZE, FAST
-  string detectorType = "ORB";
-  string descriptorType = "BRISK"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
+void get_calibration_data(cv::Mat &RT, cv::Mat &R_rect_00, cv::Mat &P_rect_00) {
+  // calibration data for camera and lidar
 
+  // rotation matrix and translation vector
+  RT.at<double>(0, 0) = 7.533745e-03;
+  RT.at<double>(0, 1) = -9.999714e-01;
+  RT.at<double>(0, 2) = -6.166020e-04;
+  RT.at<double>(0, 3) = -4.069766e-03;
+  RT.at<double>(1, 0) = 1.480249e-02;
+  RT.at<double>(1, 1) = 7.280733e-04;
+  RT.at<double>(1, 2) = -9.998902e-01;
+  RT.at<double>(1, 3) = -7.631618e-02;
+  RT.at<double>(2, 0) = 9.998621e-01;
+  RT.at<double>(2, 1) = 7.523790e-03;
+  RT.at<double>(2, 2) = 1.480755e-02;
+  RT.at<double>(2, 3) = -2.717806e-01;
+  RT.at<double>(3, 0) = 0.0;
+  RT.at<double>(3, 1) = 0.0;
+  RT.at<double>(3, 2) = 0.0;
+  RT.at<double>(3, 3) = 1.0;
+
+  // 3x3 rectifying rotation to make image planes co-planar
+  R_rect_00.at<double>(0, 0) = 9.999239e-01;
+  R_rect_00.at<double>(0, 1) = 9.837760e-03;
+  R_rect_00.at<double>(0, 2) = -7.445048e-03;
+  R_rect_00.at<double>(0, 3) = 0.0;
+  R_rect_00.at<double>(1, 0) = -9.869795e-03;
+  R_rect_00.at<double>(1, 1) = 9.999421e-01;
+  R_rect_00.at<double>(1, 2) = -4.278459e-03;
+  R_rect_00.at<double>(1, 3) = 0.0;
+  R_rect_00.at<double>(2, 0) = 7.402527e-03;
+  R_rect_00.at<double>(2, 1) = 4.351614e-03;
+  R_rect_00.at<double>(2, 2) = 9.999631e-01;
+  R_rect_00.at<double>(2, 3) = 0.0;
+  R_rect_00.at<double>(3, 0) = 0;
+  R_rect_00.at<double>(3, 1) = 0;
+  R_rect_00.at<double>(3, 2) = 0;
+  R_rect_00.at<double>(3, 3) = 1;
+
+  // 3x4 projection matrix after rectification
+  P_rect_00.at<double>(0, 0) = 7.215377e+02;
+  P_rect_00.at<double>(0, 1) = 0.000000e+00;
+  P_rect_00.at<double>(0, 2) = 6.095593e+02;
+  P_rect_00.at<double>(0, 3) = 0.000000e+00;
+  P_rect_00.at<double>(1, 0) = 0.000000e+00;
+  P_rect_00.at<double>(1, 1) = 7.215377e+02;
+  P_rect_00.at<double>(1, 2) = 1.728540e+02;
+  P_rect_00.at<double>(1, 3) = 0.000000e+00;
+  P_rect_00.at<double>(2, 0) = 0.000000e+00;
+  P_rect_00.at<double>(2, 1) = 0.000000e+00;
+  P_rect_00.at<double>(2, 2) = 1.000000e+00;
+  P_rect_00.at<double>(2, 3) = 0.000000e+00;
+}
+
+void object_tracking(string detectorType, string descriptorType,
+                     vector<double> &detectTimes, vector<double> &describeTimes,
+                     vector<double> &totalTimes, vector<double> &TTCsCamera,
+                     vector<double> &TTCsLidar, bool bVis = false,
+                     bool debug = false, bool wait = false) {
   // data location
   string dataPath = "../";
 
@@ -63,53 +112,7 @@ int main(int argc, const char *argv[]) {
   cv::Mat R_rect_00(4, 4, cv::DataType<double>::type);
   // rotation matrix and translation vector
   cv::Mat RT(4, 4, cv::DataType<double>::type);
-
-  RT.at<double>(0, 0) = 7.533745e-03;
-  RT.at<double>(0, 1) = -9.999714e-01;
-  RT.at<double>(0, 2) = -6.166020e-04;
-  RT.at<double>(0, 3) = -4.069766e-03;
-  RT.at<double>(1, 0) = 1.480249e-02;
-  RT.at<double>(1, 1) = 7.280733e-04;
-  RT.at<double>(1, 2) = -9.998902e-01;
-  RT.at<double>(1, 3) = -7.631618e-02;
-  RT.at<double>(2, 0) = 9.998621e-01;
-  RT.at<double>(2, 1) = 7.523790e-03;
-  RT.at<double>(2, 2) = 1.480755e-02;
-  RT.at<double>(2, 3) = -2.717806e-01;
-  RT.at<double>(3, 0) = 0.0;
-  RT.at<double>(3, 1) = 0.0;
-  RT.at<double>(3, 2) = 0.0;
-  RT.at<double>(3, 3) = 1.0;
-
-  R_rect_00.at<double>(0, 0) = 9.999239e-01;
-  R_rect_00.at<double>(0, 1) = 9.837760e-03;
-  R_rect_00.at<double>(0, 2) = -7.445048e-03;
-  R_rect_00.at<double>(0, 3) = 0.0;
-  R_rect_00.at<double>(1, 0) = -9.869795e-03;
-  R_rect_00.at<double>(1, 1) = 9.999421e-01;
-  R_rect_00.at<double>(1, 2) = -4.278459e-03;
-  R_rect_00.at<double>(1, 3) = 0.0;
-  R_rect_00.at<double>(2, 0) = 7.402527e-03;
-  R_rect_00.at<double>(2, 1) = 4.351614e-03;
-  R_rect_00.at<double>(2, 2) = 9.999631e-01;
-  R_rect_00.at<double>(2, 3) = 0.0;
-  R_rect_00.at<double>(3, 0) = 0;
-  R_rect_00.at<double>(3, 1) = 0;
-  R_rect_00.at<double>(3, 2) = 0;
-  R_rect_00.at<double>(3, 3) = 1;
-
-  P_rect_00.at<double>(0, 0) = 7.215377e+02;
-  P_rect_00.at<double>(0, 1) = 0.000000e+00;
-  P_rect_00.at<double>(0, 2) = 6.095593e+02;
-  P_rect_00.at<double>(0, 3) = 0.000000e+00;
-  P_rect_00.at<double>(1, 0) = 0.000000e+00;
-  P_rect_00.at<double>(1, 1) = 7.215377e+02;
-  P_rect_00.at<double>(1, 2) = 1.728540e+02;
-  P_rect_00.at<double>(1, 3) = 0.000000e+00;
-  P_rect_00.at<double>(2, 0) = 0.000000e+00;
-  P_rect_00.at<double>(2, 1) = 0.000000e+00;
-  P_rect_00.at<double>(2, 2) = 1.000000e+00;
-  P_rect_00.at<double>(2, 3) = 0.000000e+00;
+  get_calibration_data(RT, R_rect_00, P_rect_00);
 
   // misc
   // frames per second for Lidar and camera
@@ -118,23 +121,50 @@ int main(int argc, const char *argv[]) {
                                 // buffer) at the same time
   vector<DataFrame> dataBuffer; // list of data frames which are held in memory
                                 // at the same time
-  bool bVis = false;            // visualize results
 
+  cv::Size topviewImageSize = cv::Size(2000, 2000);
+  string imgFullFilename;
+  // Create and initialize the VideoWriter object
+  // Get the image size for the videowriter object
+  // assemble filenames for current index
+  ostringstream imgNumber;
+  imgNumber << setfill('0') << setw(imgFillWidth) << 0;
+  imgFullFilename = imgBasePath + imgPrefix + imgNumber.str() + imgFileType;
+
+  // load image from file
+  cv::Mat img = cv::imread(imgFullFilename);
+  cv::VideoWriter detObjVideoWriter("../dat/img/detectedObjectsYolo.avi",
+                                    cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                                    sensorFrameRate, img.size(), true);
+  cv::VideoWriter kptsVideoWriter("../dat/img/keypoints.avi",
+                                  cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                                  sensorFrameRate, img.size(), true);
+  cv::VideoWriter ttcVideoWriter("../dat/img/ttc.avi",
+                                 cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                                 sensorFrameRate, img.size(), true);
+  cv::VideoWriter topviewVideoWriter(
+      "../dat/img/topviewlidar.avi",
+      cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), sensorFrameRate,
+      topviewImageSize, true);
+  if (detObjVideoWriter.isOpened() == false ||
+      kptsVideoWriter.isOpened() == false ||
+      ttcVideoWriter.isOpened() == false ||
+      topviewVideoWriter.isOpened() == false) {
+    cout << "Cannot save the videos to a file" << endl;
+    return;
+  }
   /* MAIN LOOP OVER ALL IMAGES */
-
-  vector<float> detectTimes;
-  vector<float> describeTimes;
-  vector<double> TTCsCamera;
-  vector<double> TTCsLidar;
+  double t_total;
   for (size_t imgIndex = 0; imgIndex <= imgEndIndex - imgStartIndex;
        imgIndex += imgStepWidth) {
+    t_total = (double)cv::getTickCount();
+    cout << "Processing Frame " << imgIndex << endl;
     /* LOAD IMAGE INTO BUFFER */
 
     // assemble filenames for current index
     ostringstream imgNumber;
     imgNumber << setfill('0') << setw(imgFillWidth) << imgStartIndex + imgIndex;
-    string imgFullFilename =
-        imgBasePath + imgPrefix + imgNumber.str() + imgFileType;
+    imgFullFilename = imgBasePath + imgPrefix + imgNumber.str() + imgFileType;
 
     // load image from file
     cv::Mat img = cv::imread(imgFullFilename);
@@ -149,18 +179,26 @@ int main(int argc, const char *argv[]) {
     frame.cameraImg = img;
     dataBuffer.push_back(frame);
 
-    cout << "#1 : LOAD IMAGE INTO BUFFER done" << endl;
+    if (debug)
+      cout << "#1 : LOAD IMAGE INTO BUFFER done" << endl;
 
     /* DETECT & CLASSIFY OBJECTS using YOLO */
 
     float confThreshold = 0.2;
     float nmsThreshold = 0.4;
+    cv::Mat visObjectsImg;
     detectObjects((dataBuffer.end() - 1)->cameraImg,
                   (dataBuffer.end() - 1)->boundingBoxes, confThreshold,
                   nmsThreshold, yoloBasePath, yoloClassesFile,
-                  yoloModelConfiguration, yoloModelWeights, bVis);
+                  yoloModelConfiguration, yoloModelWeights, visObjectsImg,
+                  bVis);
+    if (bVis) {
+      detObjVideoWriter.write(visObjectsImg);
+      cout << "Detect objects visImg size: " << visObjectsImg.size() << endl;
+    }
 
-    cout << "#2 : DETECT & CLASSIFY OBJECTS done" << endl;
+    if (debug)
+      cout << "#2 : DETECT & CLASSIFY OBJECTS done" << endl;
 
     /* CROP LIDAR POINTS */
 
@@ -177,7 +215,8 @@ int main(int argc, const char *argv[]) {
 
     (dataBuffer.end() - 1)->lidarPoints = lidarPoints;
 
-    cout << "#3 : CROP LIDAR POINTS done" << endl;
+    if (debug)
+      cout << "#3 : CROP LIDAR POINTS done" << endl;
 
     /* CLUSTER LIDAR POINT CLOUD */
 
@@ -191,11 +230,17 @@ int main(int argc, const char *argv[]) {
 
     // Visualize 3D objects
     if (bVis) {
+      // create topview image
+
+      cv::Mat topviewImg(topviewImageSize, CV_8UC3, cv::Scalar(255, 255, 255));
       show3DObjects((dataBuffer.end() - 1)->boundingBoxes, cv::Size(4.0, 20.0),
-                    cv::Size(2000, 2000), true);
+                    topviewImageSize, topviewImg, true);
+      topviewVideoWriter.write(topviewImg);
+      cout << "topviewImg size: " << topviewImg.size() << endl;
     }
 
-    cout << "#4 : CLUSTER LIDAR POINT CLOUD done" << endl;
+    if (debug)
+      cout << "#4 : CLUSTER LIDAR POINT CLOUD done" << endl;
 
     /* DETECT IMAGE KEYPOINTS */
 
@@ -211,7 +256,7 @@ int main(int argc, const char *argv[]) {
     // Detector types:
     // -> Gradient Based: HARRIS, SHITOMASI, SIFT
     // -> Binary: BRISK, ORB, AKAZE, FAST
-    float detectTime;
+    double detectTime;
     if (detectorType.compare("SHITOMASI") == 0) {
       detectTime = detKeypointsShiTomasi(keypoints, imgGray, bVis);
     } else if (detectorType.compare("HARRIS") == 0) {
@@ -243,7 +288,11 @@ int main(int argc, const char *argv[]) {
       string windowName = "Keypoints cropped to bounding boxes";
       cv::namedWindow(windowName, 6);
       cv::imshow(windowName, vis_image);
-      cv::waitKey(0);
+      if (wait)
+        cv::waitKey(0);
+
+      kptsVideoWriter.write(vis_image);
+      cout << "keypoints image size: " << vis_image.size() << endl;
     }
 
     // optional : limit number of keypoints (helpful for debugging and learning)
@@ -257,26 +306,29 @@ int main(int argc, const char *argv[]) {
         keypoints.erase(keypoints.begin() + maxKeypoints, keypoints.end());
       }
       cv::KeyPointsFilter::retainBest(keypoints, maxKeypoints);
-      cout << " NOTE: Keypoints have been limited!" << endl;
+      if (debug)
+        cout << " NOTE: Keypoints have been limited!" << endl;
     }
 
     // push keypoints and descriptor for current frame to end of data buffer
     (dataBuffer.end() - 1)->keypoints = keypoints;
 
-    cout << "#5 : DETECT KEYPOINTS done" << endl;
+    if (debug)
+      cout << "#5 : DETECT KEYPOINTS done" << endl;
 
     /* EXTRACT KEYPOINT DESCRIPTORS */
 
     cv::Mat descriptors;
-    float describeTime = descKeypoints((dataBuffer.end() - 1)->keypoints,
-                                       (dataBuffer.end() - 1)->cameraImg,
-                                       descriptors, descriptorType);
+    double describeTime = descKeypoints((dataBuffer.end() - 1)->keypoints,
+                                        (dataBuffer.end() - 1)->cameraImg,
+                                        descriptors, descriptorType);
     describeTimes.push_back(describeTime);
 
     // push descriptors for current frame to end of data buffer
     (dataBuffer.end() - 1)->descriptors = descriptors;
 
-    cout << "#6 : EXTRACT DESCRIPTORS done" << endl;
+    if (debug)
+      cout << "#6 : EXTRACT DESCRIPTORS done" << endl;
 
     if (dataBuffer.size() >
         1) // wait until at least two images have been processed
@@ -300,7 +352,8 @@ int main(int argc, const char *argv[]) {
       // store matches in current data frame
       (dataBuffer.end() - 1)->kptMatches = matches;
 
-      cout << "#7 : MATCH KEYPOINT DESCRIPTORS done" << endl;
+      if (debug)
+        cout << "#7 : MATCH KEYPOINT DESCRIPTORS done" << endl;
 
       /* TRACK 3D OBJECT BOUNDING BOXES */
 
@@ -315,7 +368,8 @@ int main(int argc, const char *argv[]) {
       // store matches in current data frame
       (dataBuffer.end() - 1)->bbMatches = bbBestMatches;
 
-      cout << "#8 : TRACK 3D OBJECT BOUNDING BOXES done" << endl;
+      if (debug)
+        cout << "#8 : TRACK 3D OBJECT BOUNDING BOXES done" << endl;
 
       /* COMPUTE TTC ON OBJECT IN FRONT */
 
@@ -384,23 +438,113 @@ int main(int argc, const char *argv[]) {
             cv::namedWindow(windowName, 4);
             cv::imshow(windowName, visImg);
             cout << "Press key to continue to next frame" << endl;
-            cv::waitKey(0);
+            if (wait)
+              cv::waitKey(0);
+            cout << "TTC image size: " << visImg.size() << endl;
+
+            ttcVideoWriter.write(visImg);
           }
 
         } // eof TTC computation
       }   // eof loop over all BB matches
     }
 
-  } // eof loop over all images
+    t_total = ((double)cv::getTickCount() - t_total) / cv::getTickFrequency();
+    totalTimes.push_back(1000 * t_total / 1.0);
 
-  cout << "TTC Lidar: ";
-  for (auto ttc : TTCsLidar) {
-    cout << ttc << ", ";
+  } // eof loop over all images
+  detObjVideoWriter.release();
+  kptsVideoWriter.release();
+  ttcVideoWriter.release();
+  topviewVideoWriter.release();
+}
+
+/* MAIN PROGRAM */
+int main(int argc, const char *argv[]) {
+  /* INIT VARIABLES AND DATA STRUCTURES */
+  bool bVis = true, debug = true,
+       wait = true; // visualize results, print statements
+
+  // Save times needed for computation and TTCs
+  vector<double> detectTimes;
+  vector<double> describeTimes;
+  vector<double> totalTimes;
+  vector<double> TTCsCamera;
+  vector<double> TTCsLidar;
+
+  // Detector and descriptor types
+  // Detector types:
+  // -> Gradient Based: HARRIS, SHITOMASI, SIFT
+  // -> Binary: BRISK, ORB, AKAZE, FAST
+  string detectorType;   // HARRIS, SHITOMASI, SIFT, BRISK, ORB, AKAZE, SIFT
+  string descriptorType; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
+
+  // SIFT works only with SIFT
+  detectorType = "SIFT";
+  descriptorType = "SIFT";
+
+  object_tracking(detectorType, descriptorType, detectTimes, describeTimes,
+                  totalTimes, TTCsCamera, TTCsLidar, bVis, debug, wait);
+
+  // // AKAZE works only with AKAZE
+  // detectorType = "AKAZE";
+  // descriptorType = "AKAZE";
+
+  // object_tracking(detectorType, descriptorType, detectTimes, describeTimes,
+  //                 TTCsCamera, TTCsLidar, bVis, debug);
+
+  // // Try all other combinations of detector + descriptor
+  // vector<string> detectors{"SHITOMASI", "HARRIS", "FAST", "BRISK", "ORB"};
+  // vector<string> descriptors{"BRISK", "ORB", "BRIEF", "FREAK"};
+
+  // for (string detectorType : detectors) {
+  //   for (string descriptorType : descriptors) {
+  //     object_tracking(detectorType, descriptorType, detectTimes,
+  //     describeTimes,
+  //                     TTCsCamera, TTCsLidar, bVis, debug);
+  //   }
+  // }
+
+  // Save stats
+  ofstream ttc_camera("../dat/stats/TTC_Camera.txt");
+  if (ttc_camera.is_open()) {
+    ttc_camera << "TTC Camera"
+               << "\n";
+    for (auto ttc : TTCsCamera) {
+      ttc_camera << ttc << "\n";
+    }
+    ttc_camera.close();
+  } else {
+    cout << "Unable to open file";
+  }
+
+  ofstream ttc_lidar("../dat/stats/TTC_Lidar.txt");
+  if (ttc_lidar.is_open()) {
+    ttc_lidar << "TTC Lidar"
+              << "\n";
+    for (auto ttc : TTCsLidar) {
+      ttc_lidar << ttc << "\n";
+    }
+    ttc_lidar.close();
+  } else {
+    cout << "Unable to open file";
+  }
+
+  cout << "detectTimes: ";
+  for (auto time : detectTimes) {
+    cout << time << ", ";
   }
   cout << endl;
-  cout << "TTC Camera: ";
-  for (auto ttc : TTCsCamera) {
-    cout << ttc << ", ";
+
+  cout << "describeTimes: ";
+  for (auto time : describeTimes) {
+    cout << time << ", ";
+  }
+  cout << endl;
+
+  cout << "totalTimes: ";
+  for (auto time : totalTimes) {
+    cout << time << ", ";
   }
   cout << endl;
 

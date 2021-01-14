@@ -20,7 +20,7 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches,
                         DataFrame &currFrame);
 
 void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize,
-                   cv::Size imageSize, bool bWait = true);
+                   cv::Size imageSize, cv::Mat &topviewImg, bool bWait);
 
 void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev,
                       std::vector<cv::KeyPoint> &kptsCurr,

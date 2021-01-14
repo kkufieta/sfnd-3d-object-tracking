@@ -3,7 +3,7 @@
 
 using namespace std;
 
-bool debug = true;
+bool debug = false;
 // Find best matches for keypoints in two camera images based on several
 // matching methods
 float matchDescriptors(std::vector<cv::KeyPoint> &kPtsSource,

@@ -17,7 +17,8 @@ void detectObjects(cv::Mat &img, std::vector<BoundingBox> &bBoxes,
                    float confThreshold, float nmsThreshold,
                    std::string basePath, std::string classesFile,
                    std::string modelConfiguration, std::string modelWeights,
-                   bool bVis) {
+                   cv::Mat &visImg, bool bVis) {
+
   // load class names from file
   vector<string> classes;
   ifstream ifs(classesFile.c_str());
@@ -107,7 +108,7 @@ void detectObjects(cv::Mat &img, std::vector<BoundingBox> &bBoxes,
   // show results
   if (bVis) {
 
-    cv::Mat visImg = img.clone();
+    visImg = img.clone();
     for (auto it = bBoxes.begin(); it != bBoxes.end(); ++it) {
 
       // Draw rectangle displaying the bounding box
