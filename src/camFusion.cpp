@@ -70,7 +70,7 @@ void clusterLidarWithROI(std::vector<BoundingBox> &boundingBoxes,
  * dividing them by 2.
  */
 void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize,
-                   cv::Size imageSize, cv::Mat &topviewImg, bool bWait) {
+                   cv::Size imageSize, cv::Mat &topviewImg, bool bVis) {
 
   for (auto it1 = boundingBoxes.begin(); it1 != boundingBoxes.end(); ++it1) {
     // create randomized color for current 3D object
@@ -129,12 +129,11 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize,
              cv::Scalar(255, 0, 0));
   }
 
-  // display image
-  string windowName = "3D Objects";
-  cv::namedWindow(windowName, 1);
-  cv::imshow(windowName, topviewImg);
-
-  if (bWait) {
+  if (bVis) {
+    // display image
+    string windowName = "3D Objects";
+    cv::namedWindow(windowName, 1);
+    cv::imshow(windowName, topviewImg);
     cv::waitKey(0); // wait for key to be pressed
   }
 }

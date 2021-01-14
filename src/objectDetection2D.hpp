@@ -11,6 +11,6 @@ void detectObjects(cv::Mat &img, std::vector<BoundingBox> &bBoxes,
                    float confThreshold, float nmsThreshold,
                    std::string basePath, std::string classesFile,
                    std::string modelConfiguration, std::string modelWeights,
-                   cv::Mat &visImg, bool bVis);
+                   cv::Mat &visImg, bool bVis, bool bSafe);
 
 #endif /* objectDetection2D_hpp */

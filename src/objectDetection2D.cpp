@@ -17,7 +17,7 @@ void detectObjects(cv::Mat &img, std::vector<BoundingBox> &bBoxes,
                    float confThreshold, float nmsThreshold,
                    std::string basePath, std::string classesFile,
                    std::string modelConfiguration, std::string modelWeights,
-                   cv::Mat &visImg, bool bVis) {
+                   cv::Mat &visImg, bool bVis, bool bSafe) {
 
   // load class names from file
   vector<string> classes;
@@ -106,7 +106,7 @@ void detectObjects(cv::Mat &img, std::vector<BoundingBox> &bBoxes,
   }
 
   // show results
-  if (bVis) {
+  if (bVis || bSafe) {
 
     visImg = img.clone();
     for (auto it = bBoxes.begin(); it != bBoxes.end(); ++it) {
@@ -136,9 +136,11 @@ void detectObjects(cv::Mat &img, std::vector<BoundingBox> &bBoxes,
                   cv::Scalar(0, 0, 0), 1);
     }
 
-    string windowName = "Object classification";
-    cv::namedWindow(windowName, 1);
-    cv::imshow(windowName, visImg);
-    cv::waitKey(0); // wait for key to be pressed
+    if (bVis) {
+      string windowName = "Object classification";
+      cv::namedWindow(windowName, 1);
+      cv::imshow(windowName, visImg);
+      cv::waitKey(0); // wait for key to be pressed
+    }
   }
 }

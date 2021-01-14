@@ -79,7 +79,7 @@ void object_tracking(string detectorType, string descriptorType,
                      vector<double> &detectTimes, vector<double> &describeTimes,
                      vector<double> &totalTimes, vector<double> &TTCsCamera,
                      vector<double> &TTCsLidar, bool bVis = false,
-                     bool debug = false, bool wait = false) {
+                     bool bDebug = false, bool bSafe = false) {
   // data location
   string dataPath = "../";
 
@@ -90,7 +90,7 @@ void object_tracking(string detectorType, string descriptorType,
   string imgFileType = ".png";
   int imgStartIndex = 0; // first file index to load (assumes Lidar and camera
                          // names have identical naming convention)
-  int imgEndIndex = 18;  // last file index to load
+  int imgEndIndex = 77;  // last file index to load
   int imgStepWidth = 1;
   // no. of digits which make up the file index (e.g. img-0001.png)
   int imgFillWidth = 4;
@@ -179,7 +179,7 @@ void object_tracking(string detectorType, string descriptorType,
     frame.cameraImg = img;
     dataBuffer.push_back(frame);
 
-    if (debug)
+    if (bDebug)
       cout << "#1 : LOAD IMAGE INTO BUFFER done" << endl;
 
     /* DETECT & CLASSIFY OBJECTS using YOLO */
@@ -190,14 +190,13 @@ void object_tracking(string detectorType, string descriptorType,
     detectObjects((dataBuffer.end() - 1)->cameraImg,
                   (dataBuffer.end() - 1)->boundingBoxes, confThreshold,
                   nmsThreshold, yoloBasePath, yoloClassesFile,
-                  yoloModelConfiguration, yoloModelWeights, visObjectsImg,
-                  bVis);
-    if (bVis) {
+                  yoloModelConfiguration, yoloModelWeights, visObjectsImg, bVis,
+                  bSafe);
+    if (bSafe) {
       detObjVideoWriter.write(visObjectsImg);
-      cout << "Detect objects visImg size: " << visObjectsImg.size() << endl;
     }
 
-    if (debug)
+    if (bDebug)
       cout << "#2 : DETECT & CLASSIFY OBJECTS done" << endl;
 
     /* CROP LIDAR POINTS */
@@ -215,7 +214,7 @@ void object_tracking(string detectorType, string descriptorType,
 
     (dataBuffer.end() - 1)->lidarPoints = lidarPoints;
 
-    if (debug)
+    if (bDebug)
       cout << "#3 : CROP LIDAR POINTS done" << endl;
 
     /* CLUSTER LIDAR POINT CLOUD */
@@ -229,17 +228,16 @@ void object_tracking(string detectorType, string descriptorType,
                         P_rect_00, R_rect_00, RT);
 
     // Visualize 3D objects
-    if (bVis) {
+    if (bVis || bSafe) {
       // create topview image
 
       cv::Mat topviewImg(topviewImageSize, CV_8UC3, cv::Scalar(255, 255, 255));
       show3DObjects((dataBuffer.end() - 1)->boundingBoxes, cv::Size(4.0, 20.0),
-                    topviewImageSize, topviewImg, true);
+                    topviewImageSize, topviewImg, bVis);
       topviewVideoWriter.write(topviewImg);
-      cout << "topviewImg size: " << topviewImg.size() << endl;
     }
 
-    if (debug)
+    if (bDebug)
       cout << "#4 : CLUSTER LIDAR POINT CLOUD done" << endl;
 
     /* DETECT IMAGE KEYPOINTS */
@@ -281,18 +279,17 @@ void object_tracking(string detectorType, string descriptorType,
     keypoints = reducedKeypoints;
     // cout << "Number reduced keypoints: " << keypoints.size() << endl;
 
-    if (bVis) {
+    if (bVis || bSafe) {
       // visualize results
       cv::Mat vis_image = img.clone();
       cv::drawKeypoints(img, keypoints, vis_image);
-      string windowName = "Keypoints cropped to bounding boxes";
-      cv::namedWindow(windowName, 6);
-      cv::imshow(windowName, vis_image);
-      if (wait)
-        cv::waitKey(0);
-
       kptsVideoWriter.write(vis_image);
-      cout << "keypoints image size: " << vis_image.size() << endl;
+      if (bVis) {
+        string windowName = "Keypoints cropped to bounding boxes";
+        cv::namedWindow(windowName, 6);
+        cv::imshow(windowName, vis_image);
+        cv::waitKey(0);
+      }
     }
 
     // optional : limit number of keypoints (helpful for debugging and learning)
@@ -306,14 +303,14 @@ void object_tracking(string detectorType, string descriptorType,
         keypoints.erase(keypoints.begin() + maxKeypoints, keypoints.end());
       }
       cv::KeyPointsFilter::retainBest(keypoints, maxKeypoints);
-      if (debug)
+      if (bDebug)
         cout << " NOTE: Keypoints have been limited!" << endl;
     }
 
     // push keypoints and descriptor for current frame to end of data buffer
     (dataBuffer.end() - 1)->keypoints = keypoints;
 
-    if (debug)
+    if (bDebug)
       cout << "#5 : DETECT KEYPOINTS done" << endl;
 
     /* EXTRACT KEYPOINT DESCRIPTORS */
@@ -327,7 +324,7 @@ void object_tracking(string detectorType, string descriptorType,
     // push descriptors for current frame to end of data buffer
     (dataBuffer.end() - 1)->descriptors = descriptors;
 
-    if (debug)
+    if (bDebug)
       cout << "#6 : EXTRACT DESCRIPTORS done" << endl;
 
     if (dataBuffer.size() >
@@ -352,7 +349,7 @@ void object_tracking(string detectorType, string descriptorType,
       // store matches in current data frame
       (dataBuffer.end() - 1)->kptMatches = matches;
 
-      if (debug)
+      if (bDebug)
         cout << "#7 : MATCH KEYPOINT DESCRIPTORS done" << endl;
 
       /* TRACK 3D OBJECT BOUNDING BOXES */
@@ -368,7 +365,7 @@ void object_tracking(string detectorType, string descriptorType,
       // store matches in current data frame
       (dataBuffer.end() - 1)->bbMatches = bbBestMatches;
 
-      if (debug)
+      if (bDebug)
         cout << "#8 : TRACK 3D OBJECT BOUNDING BOXES done" << endl;
 
       /* COMPUTE TTC ON OBJECT IN FRONT */
@@ -419,7 +416,7 @@ void object_tracking(string detectorType, string descriptorType,
                            currBB->kptMatches, sensorFrameRate, ttcCamera);
           TTCsCamera.push_back(ttcCamera);
 
-          if (bVis) {
+          if (bVis || bSafe) {
             cv::Mat visImg = (dataBuffer.end() - 1)->cameraImg.clone();
             showLidarImgOverlay(visImg, currBB->lidarPoints, P_rect_00,
                                 R_rect_00, RT, &visImg);
@@ -434,15 +431,15 @@ void object_tracking(string detectorType, string descriptorType,
             putText(visImg, str, cv::Point2f(80, 50), cv::FONT_HERSHEY_PLAIN, 2,
                     cv::Scalar(0, 0, 255));
 
-            string windowName = "Final Results : TTC";
-            cv::namedWindow(windowName, 4);
-            cv::imshow(windowName, visImg);
-            cout << "Press key to continue to next frame" << endl;
-            if (wait)
-              cv::waitKey(0);
-            cout << "TTC image size: " << visImg.size() << endl;
-
             ttcVideoWriter.write(visImg);
+            if (bVis) {
+              string windowName = "Final Results : TTC";
+              cv::namedWindow(windowName, 4);
+              cv::imshow(windowName, visImg);
+              cout << "Press key to continue to next frame" << endl;
+              cv::waitKey(0);
+              cout << "TTC image size: " << visImg.size() << endl;
+            }
           }
 
         } // eof TTC computation
@@ -462,8 +459,8 @@ void object_tracking(string detectorType, string descriptorType,
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[]) {
   /* INIT VARIABLES AND DATA STRUCTURES */
-  bool bVis = true, debug = true,
-       wait = true; // visualize results, print statements
+  bool bVis = false, bDebug = false,
+       bSafe = true; // visualize results, print statements
 
   // Save times needed for computation and TTCs
   vector<double> detectTimes;
@@ -484,7 +481,7 @@ int main(int argc, const char *argv[]) {
   descriptorType = "SIFT";
 
   object_tracking(detectorType, descriptorType, detectTimes, describeTimes,
-                  totalTimes, TTCsCamera, TTCsLidar, bVis, debug, wait);
+                  totalTimes, TTCsCamera, TTCsLidar, bVis, bDebug, bSafe);
 
   // // AKAZE works only with AKAZE
   // detectorType = "AKAZE";
