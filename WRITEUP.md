@@ -233,12 +233,85 @@ From that array, we use the median distance ratio to calculate the TTC.
 Note: The TTC is prone to have a very large value if the median distance ratio `medianDistRatio` is close to 1. This would happen when the size of the car ahead is not changing much from picture to picture, indicating that the distance between the cars is not changing. This is a similar problem as we have with computing the TTC using the lidar. Again, one way to improve this would be to use a smoothing function and to consider the TTC from a couple of previous data frames.
 
 ## Performance Evaluation
+
+All the data collected for the evaluation can be found in this [Google spreadsheet](https://docs.google.com/spreadsheets/d/1LGNrIpM1u9FMPINWc5-JXiY8ySo_VVI1faRt52O12Qw/edit?usp=sharing).
 ### Analysis 1
 **Task:** Find examples where the TTC estimate of the Lidar sensor does not seem plausible. Describe your observations and provide a sound argumentation why you think this happened.
 
 Identify and describe several examples (2-3) in detail. The assertion that the TTC is off has been based on manually estimating the distance to the rear of the preceding vehicle from a top view perspective of the Lidar points.
 
+| Picture | Explanation |
+| ---- | ---- |
+| ![Lidar High Value](images/documentation/Lidar_High_Value.png) |  The TTC is unusually high in this situation, with 34 seconds (up from 7 seconds in the image before). Since I am using a filter to reduce outliers, this high TTC estimate likely stems from the fact that the estimate is directly based on the difference between of the minimum x position between two pictures. It is therefore highly sensitive to changes and like the first derivative of a variable will overshoot easily.|
+| ![Lidar Too Close](images/documentation/Lidar_Too_Close.png) | This picture shows a negative estimate, which is likely because the lidar points at this point jump easily out of range (e.g. the 2D image of the car is outside the boundaries of the image plane, and thus a lot of relevant lidar points get discarded all at once). |
+| ![Lidar Different Object](images/documentation/Lidar_Different_Object.png) | This image shows another important situation to consider: The bounding box we're looking at belongs to the truck on a different lane, and thus the lidar points used for the TTC estimation are not relevant for our case and should be ignored. This problem could be solved by utilizing the 3D object tracking in our estimation, and verify that we're not jumping back and forth between different objects for our TTC estimation. This situation should also be thought about when tuning the YOLO object detection parameters. |
+
 ### Analysis 2
 **Task:** Run several detector / descriptor combinations and look at the differences in TTC estimation. Find out which methods perform best and also include several examples where camera-based TTC estimation is way off. As with Lidar, describe your observations again and also look into potential reasons.
 
 Compare all detector / descriptor combinations implemented in previous chapters with regard to the TTC estimate on a frame-by-frame basis. To facilitate comparison, a spreadsheet and graph should be used to represent the different TTCs.
+
+This picture shows all TTCs for all detector-descriptor combinations:
+
+![TTCs Camera](images/documentation/TTCsCamera.png)
+
+It is clear that there are some detector-descriptor combinations that don't seem to be robust enough for TTC estimation. Let's take a closer look at some categories:
+
+![TTCs Camera Brisk](images/documentation/TTCsCamBrisk.png)
+![TTCs Camera Fast](images/documentation/TTCsCamFast.png)
+![TTCs Camera Harris](images/documentation/TTCsCamHarris.png)
+![TTCs Camera Orb](images/documentation/TTCsCamOrb.png)
+![TTCs Camera Shitomasi](images/documentation/TTCsCamShitomasi.png)
+
+Those plots show us that The Brisk detector performs ok, possibly best with Brisk-Orb if we want to avoid the big first spike. 
+
+The Fast detector seems to work well when it comes to avoiding huge jumps in the TTC estimation.
+
+The Harris detector is useless.
+
+The Orb detector is not working well with Orb-Brisk and Orb-Freak, and is ok for Orb-Orb, and Orb-Brief.
+
+Shitomasi is equally good as the Fast detector at avoiding big jumps in TTC estimation.
+
+#### Let's consider computation time
+Let's look at how long the detector-descriptor combinations need to do their task:
+
+Here's how long the entire pipeline takes to process one image for TTC estimation (includes everything that runs for each single image):
+![Total processing time per image](images/documentation/TimeTotal.png)
+
+Here is the time for the detection and description tasks only:
+![Time needed for detection](images/documentation/TimeDetect.png)
+
+![Time needed for description](images/documentation/TimeDescribe.png)
+
+Looking at the times, it is easy to see that certain combinations are very inefficient:
+* orb-orb
+* orb-freak
+* orb-brief
+* orb-brisk
+* sift-sift
+* brisk-brief
+* akaze-akaze
+* brisk-orb
+* brisk-freak
+* brisk-orb
+
+Looking at times together with performance, we can now exlude in general the following detectors:
+* sift
+* akaze
+* brisk
+* orb
+
+One of the fastest detector-describtor combinations, which seems to have a good performance, is FAST-ORB: It takes 0.345 seconds for detection, 0.66 seconds for describing, and a total of 1.5 seconds per image for the entire processing pipeline. 
+
+Looking at the video stream with FAST-ORB TTC detection, the results seem reasonable all the way through.
+
+**Note:** My program has many inefficiencies, and those times are unacceptable for a real-world application, because the time needed to process one image is way out of bounds with 1.5 - 3 seconds per image. The times reflected here might be inaccurately reflecting the true bottlenecks, so they shouldn't be used as is. I am using those times here for my analysis mostly for the sake of practicing how to analyze detector-descriptor combinations for a real-world project, and assuming that hopefully this data does resemble their true performance in some ways.
+
+
+## Videos of Results
+The following results reflect the choice of the FAST-ORB detector/descriptor combination.
+* [TTC estimation](https://youtu.be/KVIwXZwXngM)
+* [Object Detection using YOLOv3](https://youtu.be/rJr0ZMWvR2Y)
+* [Keypoints detected using FAST](https://youtu.be/k_3vs2km8J8)
+* [Lidar points in top-view](https://youtu.be/IUOf_QgXQjk)

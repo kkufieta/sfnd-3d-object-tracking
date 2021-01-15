@@ -267,10 +267,13 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
   auto compareX = [](LidarPoint lp1, LidarPoint lp2) {
     return (lp1.x < lp2.x);
   };
+  int numPoints = 3;
   std::sort(lidarPointsPrev.begin(), lidarPointsPrev.end(), compareX);
   std::sort(lidarPointsCurr.begin(), lidarPointsCurr.end(), compareX);
-  int nPrev = lidarPointsPrev.size() < 20 ? lidarPointsPrev.size() : 20;
-  int nCurr = lidarPointsCurr.size() < 20 ? lidarPointsCurr.size() : 20;
+  int nPrev =
+      lidarPointsPrev.size() < numPoints ? lidarPointsPrev.size() : numPoints;
+  int nCurr =
+      lidarPointsCurr.size() < numPoints ? lidarPointsCurr.size() : numPoints;
   double medianSmallestXPrev = (lidarPointsPrev[std::ceil(nPrev / 2. - 1)].x +
                                 lidarPointsPrev[std::floor(nPrev / 2.)].x) /
                                2.0;
