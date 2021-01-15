@@ -90,7 +90,7 @@ void object_tracking(string detectorType, string descriptorType,
   string imgFileType = ".png";
   int imgStartIndex = 0; // first file index to load (assumes Lidar and camera
                          // names have identical naming convention)
-  int imgEndIndex = 30;  // last file index to load
+  int imgEndIndex = 2;   // last file index to load
   int imgStepWidth = 1;
   // no. of digits which make up the file index (e.g. img-0001.png)
   int imgFillWidth = 4;
@@ -480,6 +480,26 @@ void runObjectTracking(string detectorType, string descriptorType,
   detDescTypes.push_back(detectorType + "-" + descriptorType);
 }
 
+void saveNestedStats(string filepath, vector<string> &detDescTypes,
+                     vector<vector<double>> &nestedData) {
+  ofstream stream(filepath);
+  if (stream.is_open()) {
+    for (auto type : detDescTypes) {
+      stream << type << ", ";
+    }
+    stream << "\n";
+    for (int i = 0; i < nestedData[0].size(); i++) {
+      for (auto ttcs : nestedData) {
+        stream << ttcs[i] << ", ";
+      }
+      stream << "\n";
+    }
+    stream.close();
+  } else {
+    cout << "Unable to open file";
+  }
+}
+
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[]) {
   /* INIT VARIABLES AND DATA STRUCTURES */
@@ -517,10 +537,10 @@ int main(int argc, const char *argv[]) {
                     detDescTypes, bVis, bDebug, bSafe);
 
   // Try all other combinations of detector + descriptor
-  vector<string> detectors{"SHITOMASI", "HARRIS", "FAST", "BRISK", "ORB"};
-  vector<string> descriptors{"BRISK", "ORB", "BRIEF", "FREAK"};
-  // vector<string> detectors{"SHITOMASI"};
-  // vector<string> descriptors{"BRISK", "ORB"};
+  // vector<string> detectors{"SHITOMASI", "HARRIS", "FAST", "BRISK", "ORB"};
+  // vector<string> descriptors{"BRISK", "ORB", "BRIEF", "FREAK"};
+  vector<string> detectors{"SHITOMASI"};
+  vector<string> descriptors{"ORB"};
 
   for (string detectorType : detectors) {
     for (string descriptorType : descriptors) {
@@ -529,7 +549,6 @@ int main(int argc, const char *argv[]) {
                         TTCsLidar, detDescTypes, bVis, bDebug, bSafe);
     }
   }
-  cout << "Size of allTTCsCamera: " << allTTCsCamera.size() << endl;
 
   // Save stats
   ofstream ttc_lidar("../dat/stats/TTC_Lidar.txt");
@@ -542,91 +561,11 @@ int main(int argc, const char *argv[]) {
     cout << "Unable to open file";
   }
 
-  ofstream ttc_camera("../dat/stats/TTC_Camera.txt");
-  if (ttc_camera.is_open()) {
-    for (auto type : detDescTypes) {
-      ttc_camera << type << ", ";
-    }
-    ttc_camera << "\n";
-    for (int i = 0; i < allTTCsCamera[0].size(); i++) {
-      for (auto ttcs : allTTCsCamera) {
-        ttc_camera << ttcs[i] << ", ";
-      }
-      ttc_camera << "\n";
-    }
-    ttc_camera.close();
-  } else {
-    cout << "Unable to open file";
-  }
-
-  ofstream ss1("../dat/stats/detectTimes.txt");
-  if (ss1.is_open()) {
-    for (auto type : detDescTypes) {
-      ss1 << type << ", ";
-    }
-    ss1 << "\n";
-    for (int i = 0; i < allDetectTimes[0].size(); i++) {
-      for (auto stats : allDetectTimes) {
-        ss1 << stats[i] << ", ";
-      }
-      ss1 << "\n";
-    }
-    ss1.close();
-  } else {
-    cout << "Unable to open file";
-  }
-
-  ofstream ss2("../dat/stats/describeTimes.txt");
-  if (ss2.is_open()) {
-    for (auto type : detDescTypes) {
-      ss2 << type << ", ";
-    }
-    ss2 << "\n";
-    for (int i = 0; i < allDescribeTimes[0].size(); i++) {
-      for (auto stats : allDescribeTimes) {
-        ss2 << stats[i] << ", ";
-      }
-      ss2 << "\n";
-    }
-    ss2.close();
-  } else {
-    cout << "Unable to open file";
-  }
-
-  ofstream ss3("../dat/stats/totalTimes.txt");
-  if (ss3.is_open()) {
-    for (auto type : detDescTypes) {
-      ss3 << type << ", ";
-    }
-    ss3 << "\n";
-    for (int i = 0; i < allTotalTimes[0].size(); i++) {
-      for (auto stats : allTotalTimes) {
-        ss3 << stats[i] << ", ";
-      }
-      ss3 << "\n";
-    }
-    ss3.close();
-  } else {
-    cout << "Unable to open file";
-  }
-
-  cout << "detectTimes: ";
-  for (auto time : allDetectTimes[0]) {
-    cout << time << ", ";
-  }
-  cout << endl;
-
-  cout << "describeTimes: ";
-  for (auto time : allDescribeTimes[0]) {
-    cout << time << ", ";
-  }
-  cout << endl;
-
-  cout << "totalTimes: ";
-  for (auto time : allTotalTimes[0]) {
-    cout << time << ", ";
-  }
-  cout << endl;
+  saveNestedStats("../dat/stats/TTC_Camera.txt", detDescTypes, allTTCsCamera);
+  saveNestedStats("../dat/stats/totalTimes.txt", detDescTypes, allTotalTimes);
+  saveNestedStats("../dat/stats/detectTimes.txt", detDescTypes, allDetectTimes);
+  saveNestedStats("../dat/stats/describeTimes.txt", detDescTypes,
+                  allDescribeTimes);
 
   return 0;
 }
