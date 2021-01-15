@@ -503,8 +503,8 @@ void saveNestedStats(string filepath, vector<string> &detDescTypes,
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[]) {
   /* INIT VARIABLES AND DATA STRUCTURES */
-  bool bVis = false, bDebug = false,
-       bSafe = true; // visualize results, print statements
+  bool bVis = true, bDebug = false,
+       bSafe = false; // visualize results, print statements
 
   // Save times needed for computation and TTCs
   vector<vector<double>> allDetectTimes;
@@ -550,22 +550,25 @@ int main(int argc, const char *argv[]) {
     }
   }
 
-  // Save stats
-  ofstream ttc_lidar("../dat/stats/TTC_Lidar.txt");
-  if (ttc_lidar.is_open()) {
-    for (auto ttc : TTCsLidar) {
-      ttc_lidar << ttc << "\n";
+  if (bSafe) {
+    // Save stats
+    ofstream ttc_lidar("../dat/stats/TTC_Lidar.txt");
+    if (ttc_lidar.is_open()) {
+      for (auto ttc : TTCsLidar) {
+        ttc_lidar << ttc << "\n";
+      }
+      ttc_lidar.close();
+    } else {
+      cout << "Unable to open file";
     }
-    ttc_lidar.close();
-  } else {
-    cout << "Unable to open file";
-  }
 
-  saveNestedStats("../dat/stats/TTC_Camera.txt", detDescTypes, allTTCsCamera);
-  saveNestedStats("../dat/stats/totalTimes.txt", detDescTypes, allTotalTimes);
-  saveNestedStats("../dat/stats/detectTimes.txt", detDescTypes, allDetectTimes);
-  saveNestedStats("../dat/stats/describeTimes.txt", detDescTypes,
-                  allDescribeTimes);
+    saveNestedStats("../dat/stats/TTC_Camera.txt", detDescTypes, allTTCsCamera);
+    saveNestedStats("../dat/stats/totalTimes.txt", detDescTypes, allTotalTimes);
+    saveNestedStats("../dat/stats/detectTimes.txt", detDescTypes,
+                    allDetectTimes);
+    saveNestedStats("../dat/stats/describeTimes.txt", detDescTypes,
+                    allDescribeTimes);
+  }
 
   return 0;
 }
