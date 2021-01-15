@@ -90,7 +90,7 @@ void object_tracking(string detectorType, string descriptorType,
   string imgFileType = ".png";
   int imgStartIndex = 0; // first file index to load (assumes Lidar and camera
                          // names have identical naming convention)
-  int imgEndIndex = 77;  // last file index to load
+  int imgEndIndex = 30;  // last file index to load
   int imgStepWidth = 1;
   // no. of digits which make up the file index (e.g. img-0001.png)
   int imgFillWidth = 4;
@@ -136,10 +136,12 @@ void object_tracking(string detectorType, string descriptorType,
   cv::VideoWriter detObjVideoWriter("../dat/img/detectedObjectsYolo.avi",
                                     cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
                                     sensorFrameRate, img.size(), true);
-  cv::VideoWriter kptsVideoWriter("../dat/img/keypoints.avi",
+  cv::VideoWriter kptsVideoWriter("../dat/img/keypoints-" + detectorType + "-" +
+                                      descriptorType + ".avi",
                                   cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
                                   sensorFrameRate, img.size(), true);
-  cv::VideoWriter ttcVideoWriter("../dat/img/ttc.avi",
+  cv::VideoWriter ttcVideoWriter("../dat/img/ttc-" + detectorType + "-" +
+                                     descriptorType + ".avi",
                                  cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
                                  sensorFrameRate, img.size(), true);
   cv::VideoWriter topviewVideoWriter(
@@ -456,6 +458,28 @@ void object_tracking(string detectorType, string descriptorType,
   topviewVideoWriter.release();
 }
 
+void runObjectTracking(string detectorType, string descriptorType,
+                       vector<vector<double>> &allDetectTimes,
+                       vector<vector<double>> &allDescribeTimes,
+                       vector<vector<double>> &allTotalTimes,
+                       vector<vector<double>> &allTTCsCamera,
+                       vector<double> &TTCsLidar, vector<string> &detDescTypes,
+                       bool bVis, bool bDebug, bool bSafe) {
+  // Save times needed for computation and TTCs
+  vector<double> detectTimes;
+  vector<double> describeTimes;
+  vector<double> totalTimes;
+  vector<double> TTCsCamera;
+
+  object_tracking(detectorType, descriptorType, detectTimes, describeTimes,
+                  totalTimes, TTCsCamera, TTCsLidar, bVis, bDebug, bSafe);
+  allDetectTimes.push_back(detectTimes);
+  allDescribeTimes.push_back(describeTimes);
+  allTotalTimes.push_back(totalTimes);
+  allTTCsCamera.push_back(TTCsCamera);
+  detDescTypes.push_back(detectorType + "-" + descriptorType);
+}
+
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[]) {
   /* INIT VARIABLES AND DATA STRUCTURES */
@@ -463,11 +487,12 @@ int main(int argc, const char *argv[]) {
        bSafe = true; // visualize results, print statements
 
   // Save times needed for computation and TTCs
-  vector<double> detectTimes;
-  vector<double> describeTimes;
-  vector<double> totalTimes;
-  vector<double> TTCsCamera;
+  vector<vector<double>> allDetectTimes;
+  vector<vector<double>> allDescribeTimes;
+  vector<vector<double>> allTotalTimes;
+  vector<vector<double>> allTTCsCamera;
   vector<double> TTCsLidar;
+  vector<string> detDescTypes;
 
   // Detector and descriptor types
   // Detector types:
@@ -480,45 +505,35 @@ int main(int argc, const char *argv[]) {
   detectorType = "SIFT";
   descriptorType = "SIFT";
 
-  object_tracking(detectorType, descriptorType, detectTimes, describeTimes,
-                  totalTimes, TTCsCamera, TTCsLidar, bVis, bDebug, bSafe);
+  runObjectTracking(detectorType, descriptorType, allDetectTimes,
+                    allDescribeTimes, allTotalTimes, allTTCsCamera, TTCsLidar,
+                    detDescTypes, bVis, bDebug, bSafe);
 
-  // // AKAZE works only with AKAZE
-  // detectorType = "AKAZE";
-  // descriptorType = "AKAZE";
+  // AKAZE works only with AKAZE
+  detectorType = "AKAZE";
+  descriptorType = "AKAZE";
+  runObjectTracking(detectorType, descriptorType, allDetectTimes,
+                    allDescribeTimes, allTotalTimes, allTTCsCamera, TTCsLidar,
+                    detDescTypes, bVis, bDebug, bSafe);
 
-  // object_tracking(detectorType, descriptorType, detectTimes, describeTimes,
-  //                 TTCsCamera, TTCsLidar, bVis, debug);
+  // Try all other combinations of detector + descriptor
+  vector<string> detectors{"SHITOMASI", "HARRIS", "FAST", "BRISK", "ORB"};
+  vector<string> descriptors{"BRISK", "ORB", "BRIEF", "FREAK"};
+  // vector<string> detectors{"SHITOMASI"};
+  // vector<string> descriptors{"BRISK", "ORB"};
 
-  // // Try all other combinations of detector + descriptor
-  // vector<string> detectors{"SHITOMASI", "HARRIS", "FAST", "BRISK", "ORB"};
-  // vector<string> descriptors{"BRISK", "ORB", "BRIEF", "FREAK"};
-
-  // for (string detectorType : detectors) {
-  //   for (string descriptorType : descriptors) {
-  //     object_tracking(detectorType, descriptorType, detectTimes,
-  //     describeTimes,
-  //                     TTCsCamera, TTCsLidar, bVis, debug);
-  //   }
-  // }
+  for (string detectorType : detectors) {
+    for (string descriptorType : descriptors) {
+      runObjectTracking(detectorType, descriptorType, allDetectTimes,
+                        allDescribeTimes, allTotalTimes, allTTCsCamera,
+                        TTCsLidar, detDescTypes, bVis, bDebug, bSafe);
+    }
+  }
+  cout << "Size of allTTCsCamera: " << allTTCsCamera.size() << endl;
 
   // Save stats
-  ofstream ttc_camera("../dat/stats/TTC_Camera.txt");
-  if (ttc_camera.is_open()) {
-    ttc_camera << "TTC Camera"
-               << "\n";
-    for (auto ttc : TTCsCamera) {
-      ttc_camera << ttc << "\n";
-    }
-    ttc_camera.close();
-  } else {
-    cout << "Unable to open file";
-  }
-
   ofstream ttc_lidar("../dat/stats/TTC_Lidar.txt");
   if (ttc_lidar.is_open()) {
-    ttc_lidar << "TTC Lidar"
-              << "\n";
     for (auto ttc : TTCsLidar) {
       ttc_lidar << ttc << "\n";
     }
@@ -527,20 +542,88 @@ int main(int argc, const char *argv[]) {
     cout << "Unable to open file";
   }
 
+  ofstream ttc_camera("../dat/stats/TTC_Camera.txt");
+  if (ttc_camera.is_open()) {
+    for (auto type : detDescTypes) {
+      ttc_camera << type << ", ";
+    }
+    ttc_camera << "\n";
+    for (int i = 0; i < allTTCsCamera[0].size(); i++) {
+      for (auto ttcs : allTTCsCamera) {
+        ttc_camera << ttcs[i] << ", ";
+      }
+      ttc_camera << "\n";
+    }
+    ttc_camera.close();
+  } else {
+    cout << "Unable to open file";
+  }
+
+  ofstream ss1("../dat/stats/detectTimes.txt");
+  if (ss1.is_open()) {
+    for (auto type : detDescTypes) {
+      ss1 << type << ", ";
+    }
+    ss1 << "\n";
+    for (int i = 0; i < allDetectTimes[0].size(); i++) {
+      for (auto stats : allDetectTimes) {
+        ss1 << stats[i] << ", ";
+      }
+      ss1 << "\n";
+    }
+    ss1.close();
+  } else {
+    cout << "Unable to open file";
+  }
+
+  ofstream ss2("../dat/stats/describeTimes.txt");
+  if (ss2.is_open()) {
+    for (auto type : detDescTypes) {
+      ss2 << type << ", ";
+    }
+    ss2 << "\n";
+    for (int i = 0; i < allDescribeTimes[0].size(); i++) {
+      for (auto stats : allDescribeTimes) {
+        ss2 << stats[i] << ", ";
+      }
+      ss2 << "\n";
+    }
+    ss2.close();
+  } else {
+    cout << "Unable to open file";
+  }
+
+  ofstream ss3("../dat/stats/totalTimes.txt");
+  if (ss3.is_open()) {
+    for (auto type : detDescTypes) {
+      ss3 << type << ", ";
+    }
+    ss3 << "\n";
+    for (int i = 0; i < allTotalTimes[0].size(); i++) {
+      for (auto stats : allTotalTimes) {
+        ss3 << stats[i] << ", ";
+      }
+      ss3 << "\n";
+    }
+    ss3.close();
+  } else {
+    cout << "Unable to open file";
+  }
+
   cout << "detectTimes: ";
-  for (auto time : detectTimes) {
+  for (auto time : allDetectTimes[0]) {
     cout << time << ", ";
   }
   cout << endl;
 
   cout << "describeTimes: ";
-  for (auto time : describeTimes) {
+  for (auto time : allDescribeTimes[0]) {
     cout << time << ", ";
   }
   cout << endl;
 
   cout << "totalTimes: ";
-  for (auto time : totalTimes) {
+  for (auto time : allTotalTimes[0]) {
     cout << time << ", ";
   }
   cout << endl;
