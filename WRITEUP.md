@@ -1,8 +1,4 @@
 # Track an object in 3D space
-NOTES to self: 
-* Include statement & supporting figures/images
-* How did I address things?
-* Where in the code did I address them?
 
 ## Match 3D Objects
 **Task:** Implement the method `matchBoundingBoxes`, which takes as input both the previous and the current data frames and provides as output the ids of the matched regions of interest (i.e. the boxID property). Matches must be the ones with the highest number of keypoint correspondences. Each bounding box is assigned the match candidate with the highest number of occurrences.
@@ -242,7 +238,7 @@ Identify and describe several examples (2-3) in detail. The assertion that the T
 
 | Picture | Explanation |
 | ---- | ---- |
-| ![Lidar High Value](images/documentation/Lidar_High_Value.png) |  The TTC is unusually high in this situation, with 34 seconds (up from 7 seconds in the image before). Since I am using a filter to reduce outliers, this high TTC estimate likely stems from the fact that the estimate is directly based on the difference between of the minimum x position between two pictures. It is therefore highly sensitive to changes and like the first derivative of a variable will overshoot easily.|
+| ![Lidar High Value](images/documentation/Lidar_High_Value.png) |  The TTC is unusually high in this situation, with 34 seconds (up from 7 seconds in the image before). Since I am using a filter to reduce outliers, this high TTC estimate likely stems from the fact that the estimate is directly based on the difference between of the minimum x position between two pictures. It is therefore highly sensitive to quick changes and noise in the measurements, leading to artifacts like these.|
 | ![Lidar Too Close](images/documentation/Lidar_Too_Close.png) | This picture shows a negative estimate, which is likely because the lidar points at this point jump easily out of range (e.g. the 2D image of the car is outside the boundaries of the image plane, and thus a lot of relevant lidar points get discarded all at once). |
 | ![Lidar Different Object](images/documentation/Lidar_Different_Object.png) | This image shows another important situation to consider: The bounding box we're looking at belongs to the truck on a different lane, and thus the lidar points used for the TTC estimation are not relevant for our case and should be ignored. This problem could be solved by utilizing the 3D object tracking in our estimation, and verify that we're not jumping back and forth between different objects for our TTC estimation. This situation should also be thought about when tuning the YOLO object detection parameters. |
 
@@ -263,15 +259,12 @@ It is clear that there are some detector-descriptor combinations that don't seem
 ![TTCs Camera Orb](images/documentation/TTCsCamOrb.png)
 ![TTCs Camera Shitomasi](images/documentation/TTCsCamShitomasi.png)
 
-Those plots show us that The Brisk detector performs ok, possibly best with Brisk-Orb if we want to avoid the big first spike. 
-
-The Fast detector seems to work well when it comes to avoiding huge jumps in the TTC estimation.
-
-The Harris detector is useless.
-
-The Orb detector is not working well with Orb-Brisk and Orb-Freak, and is ok for Orb-Orb, and Orb-Brief.
-
-Shitomasi is equally good as the Fast detector at avoiding big jumps in TTC estimation.
+Those plots show us that:
+* The Brisk detector performs ok, possibly best with Brisk-Orb if we want to avoid the big first spike. 
+* The Fast detector seems to work well when it comes to avoiding huge jumps in the TTC estimation.
+* The Harris detector is useless.
+* The Orb detector is not working well with Orb-Brisk and Orb-Freak, and is ok for Orb-Orb, and Orb-Brief.
+* Shitomasi is equally good as the Fast detector at avoiding big jumps in TTC estimation.
 
 #### Let's consider computation time
 Let's look at how long the detector-descriptor combinations need to do their task:
