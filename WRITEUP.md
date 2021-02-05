@@ -247,6 +247,8 @@ Identify and describe several examples (2-3) in detail. The assertion that the T
 
 Compare all detector / descriptor combinations implemented in previous chapters with regard to the TTC estimate on a frame-by-frame basis. To facilitate comparison, a spreadsheet and graph should be used to represent the different TTCs.
 
+The spreadsheets that hold all the data are saved and compared in this [Google Spreadsheet](https://docs.google.com/spreadsheets/d/1LGNrIpM1u9FMPINWc5-JXiY8ySo_VVI1faRt52O12Qw/edit). I am not copy/pasting the values into this readme due to the size of the tables, but I'm showing the resulting graphs in the following.
+
 This picture shows all TTCs for all detector-descriptor combinations:
 
 ![TTCs Camera](images/documentation/TTCsCamera.png)
